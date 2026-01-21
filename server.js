@@ -1,5 +1,6 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
+const cors = require('cors');
 require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });const port=3000;
 
 //database config information
@@ -20,6 +21,9 @@ app.use(express.json());
 app.listen(port, () => {
     console.log('Server running on port', port);
 });
+
+app.use(cors()); // 2. Enable it BEFORE your routes
+app.use(express.json());
 
 app.get('/allcards', async (req, res) => {
     try {
