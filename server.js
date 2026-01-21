@@ -3,7 +3,7 @@ const mysql = require('mysql2/promise');
 const cors = require('cors');
 require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 
-const port = process.env.PORT || 3000; // Use Render's port or 3000
+const port = process.env.PORT || 3000;
 
 const dbconfig = {
     host: process.env.DB_HOST,
@@ -18,7 +18,6 @@ const dbconfig = {
 
 const app = express();
 
-// --- Middleware ---
 app.use(cors()); 
 app.use(express.json());
 
@@ -28,13 +27,14 @@ app.get('/allcards', async (req, res) => {
     let conn;
     try {
         conn = await mysql.createConnection(dbconfig);
-        const [rows] = await connection.execute('SELECT * FROM defaultdb.cards');
+        // FIXED: Changed 'connection.execute' to 'conn.execute'
+        const [rows] = await conn.execute('SELECT * FROM defaultdb.cards');
         res.json(rows);
     } catch (error) {
         console.error(error);
         res.status(500).json({message: 'Server error for allcards'});
     } finally {
-        if (conn) await conn.end(); // Close connection!
+        if (conn) await conn.end();
     }
 });
 
@@ -43,7 +43,6 @@ app.post('/addcard', async (req, res) => {
     let conn;
     try {
         conn = await mysql.createConnection(dbconfig);
-        // Added 'defaultdb.' prefix to match your GET route
         await conn.execute(
             'INSERT INTO defaultdb.cards (card_name, card_pic) VALUES (?, ?)', 
             [card_name, card_pic]
@@ -51,7 +50,7 @@ app.post('/addcard', async (req, res) => {
         res.status(201).json({ message: `Card ${card_name} added successfully` });
     } catch (error) {
         console.error("SQL Error:", error);
-        res.status(500).json({message: error.message}); // Returns real error to browser
+        res.status(500).json({message: error.message}); 
     } finally {
         if (conn) await conn.end();
     }
@@ -62,7 +61,6 @@ app.delete('/deletecard/:id', async (req, res) => {
     let conn;
     try {
         conn = await mysql.createConnection(dbconfig);
-        // Use '?' placeholder to prevent SQL Injection
         await conn.execute('DELETE FROM defaultdb.cards WHERE id = ?', [id]);
         res.status(200).json({ message: `Card ${id} deleted successfully` });
     } catch (error) {
@@ -92,7 +90,6 @@ app.put('/updatecard/:id', async (req, res) => {
     }
 });
 
-// Start server
 app.listen(port, () => {
     console.log('Server running on port', port);
 });
