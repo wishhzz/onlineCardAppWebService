@@ -2,19 +2,18 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const jwt = require("jsonwebtoken"); 
-require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me"; 
 
-// Define this so your login route doesn't crash
 const DEMO_USER = {
     id: 1,
     username: "admin",
-    password: "password123" // In a real app, use hashed passwords!
+    password: "password123" 
 };
 
-// Use a Pool instead of individual connections for better performance
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -53,7 +52,6 @@ function requireAuth(req, res, next) {
 
 app.post("/login", (req, res) => { 
     const { username, password } = req.body; 
-    
     if (username !== DEMO_USER.username || password !== DEMO_USER.password) { 
         return res.status(401).json({ error: "Invalid credentials" }); 
     } 
@@ -63,11 +61,18 @@ app.post("/login", (req, res) => {
         JWT_SECRET, 
         { expiresIn: "1h" } 
     ); 
-
     res.json({ token }); 
 }); 
 
-// COMBINED: Protected Add Card Route
+app.get('/allcards', async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT * FROM defaultdb.cards');
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({message: 'Server error for allcards'});
+    }
+});
+
 app.post('/addcard', requireAuth, async (req, res) => {
     const { card_name, card_pic } = req.body;
     try {
@@ -81,17 +86,25 @@ app.post('/addcard', requireAuth, async (req, res) => {
     }
 });
 
-// Example of an unprotected route (anyone can view cards)
-app.get('/allcards', async (req, res) => {
+app.put('/updatecard/:id', requireAuth, async (req, res) => {
+    const { id } = req.params;
+    const { card_name, card_pic } = req.body; 
     try {
-        const [rows] = await pool.execute('SELECT * FROM defaultdb.cards');
-        res.json(rows);
+        const [result] = await pool.execute(
+            'UPDATE defaultdb.cards SET card_name = ?, card_pic = ? WHERE id = ?', 
+            [card_name, card_pic, id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Card not found" });
+        }
+        res.status(200).json({ message: `Card ${card_name} updated successfully` });
     } catch (error) {
-        res.status(500).json({message: 'Server error for allcards'});
+        console.error("Update Error:", error);
+        res.status(500).json({ message: error.message }); 
     }
 });
 
-// You should probably add requireAuth to these as well!
 app.delete('/deletecard/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     try {
@@ -102,6 +115,7 @@ app.delete('/deletecard/:id', requireAuth, async (req, res) => {
     }
 });
 
+// ALWAYS place this at the very bottom
 app.listen(port, () => {
     console.log('Server running on port', port);
 });
